@@ -1,13 +1,24 @@
 import uvicorn
 from fastapi import FastAPI
-from database import session
-from models import Todo
+from database import session, engine
+from models.todo import Todo
+from models.product import Base, Product
+from schemas.products import Products
+
 app = FastAPI()
+Base.metadata.create_all(engine)
 
 @app.get("/")
 async def get_all_todos():
     todos_query = session.query(Todo)
     return todos_query.all()
+
+@app.post("/product")
+def create(product: Products):
+    new_product = Product(**product.model_dump())
+    session.add(new_product)
+    session.commit()
+    return new_product
 
 @app.post("/create")
 async def create_todo(text: str, is_complete: bool = False):
