@@ -1,58 +1,45 @@
 import uvicorn
 from fastapi import FastAPI
 from database import session, engine
-from models.todo import Todo
 from models.product import Base, Product
 from schemas.products import Products
 
 app = FastAPI()
 Base.metadata.create_all(engine)
 
-@app.get("/")
-async def get_all_todos():
-    todos_query = session.query(Todo)
-    return todos_query.all()
+@app.get("/products")
+async def get():
+    products = session.query(Product)
+    return products.all()
 
-@app.post("/product")
-def create(product: Products):
+@app.post("/products")
+def post(product: Products):
     new_product = Product(**product.model_dump())
     session.add(new_product)
     session.commit()
-    return new_product
+    return new_product.id
 
-@app.post("/create")
-async def create_todo(text: str, is_complete: bool = False):
-    todo = Todo(text=text, is_done=is_complete)
-    session.add(todo)
-    session.commit()
-    return {"todo added": todo.text}
-
-@app.get("/done")
-async def list_done_todos():
-    todos_query = session.query(Todo)
-    done_todos_query = todos_query.filter(Todo.is_done==True)
-    return done_todos_query.all()
-
-@app.put("/update/{id}")
-async def update_todo(
-    id: int,
-    new_text: str = "",
-    is_complete: bool = False
-):
-    todo_query = session.query(Todo).filter(Todo.id==id)
-    todo = todo_query.first()
-    if new_text:
-        todo.text = new_text
-    todo.is_done = is_complete
-    session.add(todo)
+@app.put("/products/{id}")
+async def update_todo(product: Products, id: int):
+    query = session.query(Product).filter(Product.id==id)
+    first = query.first()
+    if (first == None):
+        return {"message": "Invalid id"}
+    first.at_sale = product.at_sale
+    first.description = product.description
+    first.inventory = product.inventory
+    first.title = product.title
+    session.add(first)
     session.commit()
 
-@app.delete("/delete/{id}")
+@app.delete("/products/{id}")
 async def delete_todo(id: int):
-    todo = session.query(Todo).filter(Todo.id==id).first() # Todo object
-    session.delete(todo)
+    product = session.query(Product).filter(Product.id==id).first()
+    if (product == None):
+        return {"message": "Invalid id"}
+    session.delete(product)
     session.commit()
-    return {"todo deleted": todo.text}
+    return {f"Product '{product.title}' deleted"}
 
 if __name__ == "__main__":
     uvicorn.run(app, host="0.0.0.0", port=8000)
